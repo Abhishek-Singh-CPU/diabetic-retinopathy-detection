@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Diabetic Retinopathy Detection</title>
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            background: #f4f6f9;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            margin: 40px auto;
+            width: 400px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        img, video {
+            margin-top: 15px;
+            border-radius: 8px;
+        }
+
+        .prediction {
+            font-size: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Diabetic Retinopathy Detection</h1>
+
+<div class="container">
+
+    <!-- Upload -->
+    <form method="POST" enctype="multipart/form-data">
+        <input type="file" name="file">
+        <br><br>
+        <button type="submit">Upload & Predict</button>
+    </form>
+
+    <hr>
+
+    <!-- Camera -->
+    <h3>Use Camera</h3>
+    <video id="video" width="250" autoplay></video>
+    <br>
+    <button onclick="capture()">Capture & Predict</button>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <form method="POST" id="cameraForm">
+        <input type="hidden" name="image_data" id="image_data">
+    </form>
+
+    <script>
+        const video = document.getElementById('video');
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => video.srcObject = stream);
+
+        function capture() {
+    if (video.readyState !== 4) {
+        alert("Camera still loading...");
+        return;
+    }
+
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+
+    // 🔥 reduce resolution
+    const width = 224;
+    const height = 224;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    context.drawImage(video, 0, 0, width, height);
+
+    // 🔥 compress image
+    const dataURL = canvas.toDataURL('image/jpeg', 0.7);
+
+    document.getElementById('image_data').value = dataURL;
+    document.getElementById('cameraForm').submit();
+}
+    </script>
+
+    {% if image %}
+        <h3>Image</h3>
+        <img src="data:image/png;base64,{{ image }}" width="250">
+    {% endif %}
+
+    {% if prediction %}
+        <p class="prediction">Prediction: {{ prediction }}</p>
+    {% endif %}
+
+    {% if confidence %}
+        <p>Confidence: {{ confidence }}%</p>
+    {% endif %}
+
+    {% if gradcam %}
+        <h3>Grad-CAM</h3>
+        <img src="data:image/png;base64,{{ gradcam }}" width="250">
+    {% endif %}
+
+</div>
+
+</body>
+</html>
