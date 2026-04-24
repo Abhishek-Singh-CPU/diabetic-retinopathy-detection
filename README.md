@@ -47,7 +47,7 @@ The system also includes Grad-CAM visualization to highlight the regions of the 
 ## ⚙️ Installation & Usage
 
 ```bash
-git clone https://github.com/Abhishek-Singh-CPU/diabetic-retinopathy-detection.git
+git clone https://github.com/x-abhisheksingh/diabetic-retinopathy-detection.git
 cd diabetic-retinopathy-detection
 pip install -r requirements.txt
 python app.py
