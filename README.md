@@ -1,53 +1,25 @@
+---
+title: Diabetic Retinopathy Detection
+emoji: 👁️
+colorFrom: blue
+colorTo: red
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # Diabetic Retinopathy Detection
 
-An AI-powered web application for detecting diabetic retinopathy from retinal images using deep learning.
+A deep learning web app that classifies diabetic retinopathy severity from retinal fundus images using a fine-tuned MobileNetV2 model with Grad-CAM visualization.
 
----
+## Classes
+- No DR
+- Mild
+- Moderate
+- Severe
+- Proliferative DR
 
-## 🔍 Overview
-This project uses a Convolutional Neural Network (MobileNetV2 with transfer learning) to classify retinal images into different stages of diabetic retinopathy.
-
-The system also includes Grad-CAM visualization to highlight the regions of the image that influenced the prediction, making the model more interpretable.
-
----
-
-## 🚀 Features
-- Image upload for prediction
-- Real-time camera input
-- Prediction with confidence score
-- Grad-CAM visualization (Explainable AI)
-
----
-
-## 🧠 Tech Stack
-- Python
-- Flask
-- TensorFlow / Keras
-- OpenCV
-- NumPy
-- Pillow
-
----
-
-## 📊 Model Details
-- Architecture: MobileNetV2 (Transfer Learning)
-- Input size: 160x160
-- Classes:
-  - No DR
-  - Mild
-  - Moderate
-  - Severe
-  - Proliferative DR
-
----
-
-## ⚙️ Installation
-
-```bash
-## ⚙️ Installation & Usage
-
-```bash
-git clone https://github.com/x-abhisheksingh/diabetic-retinopathy-detection.git
-cd diabetic-retinopathy-detection
-pip install -r requirements.txt
-python app.py
+## How to Use
+1. Upload a retinal fundus image (PNG/JPG)
+2. Or use your webcam to capture one
+3. Click **Predict** to see the classification and Grad-CAM heatmap
