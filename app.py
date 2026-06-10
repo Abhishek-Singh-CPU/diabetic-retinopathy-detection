@@ -7,24 +7,36 @@ import base64
 import cv2
 import os
 
-app = Flask(__name__)
+# ── Monkeypatch BatchNormalization ──────────────────────────────────────────
+# The model was saved with a TF/Keras version that stored 'renorm' params in
+# BatchNormalization. Keras 3 removed these options, causing load_model to fail.
+# Monkeypatch the constructor of BatchNormalization in both tf.keras and keras.
 
-# ── Compatibility shim ─────────────────────────────────────────────────────
-# The model was saved with a TF version that stored 'renorm' params in
-# BatchNormalization. Newer Keras 3 dropped those. Strip them on load.
-class CompatBatchNormalization(tf.keras.layers.BatchNormalization):
-    def __init__(self, **kwargs):
+original_tf_bn_init = tf.keras.layers.BatchNormalization.__init__
+def patched_tf_bn_init(self, *args, **kwargs):
+    kwargs.pop('renorm', None)
+    kwargs.pop('renorm_clipping', None)
+    kwargs.pop('renorm_momentum', None)
+    original_tf_bn_init(self, *args, **kwargs)
+tf.keras.layers.BatchNormalization.__init__ = patched_tf_bn_init
+
+try:
+    import keras
+    original_keras_bn_init = keras.layers.BatchNormalization.__init__
+    def patched_keras_bn_init(self, *args, **kwargs):
         kwargs.pop('renorm', None)
         kwargs.pop('renorm_clipping', None)
         kwargs.pop('renorm_momentum', None)
-        super().__init__(**kwargs)
+        original_keras_bn_init(self, *args, **kwargs)
+    keras.layers.BatchNormalization.__init__ = patched_keras_bn_init
+except (ImportError, AttributeError):
+    pass
+
+app = Flask(__name__)
 
 # ── Load model ─────────────────────────────────────────────────────────────
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "dr_model_finetuned.keras")
-model = tf.keras.models.load_model(
-    MODEL_PATH,
-    custom_objects={'BatchNormalization': CompatBatchNormalization}
-)
+model = tf.keras.models.load_model(MODEL_PATH)
 
 classes = ["No DR", "Mild", "Moderate", "Severe", "Proliferative DR"]
 
