@@ -5,10 +5,26 @@ from PIL import Image
 from io import BytesIO
 import base64
 import cv2
+import os
 
 app = Flask(__name__)
 
-model = tf.keras.models.load_model("dr_model_finetuned.keras")
+# ── Compatibility shim ─────────────────────────────────────────────────────
+# The model was saved with a TF version that stored 'renorm' params in
+# BatchNormalization. Newer Keras 3 dropped those. Strip them on load.
+class CompatBatchNormalization(tf.keras.layers.BatchNormalization):
+    def __init__(self, **kwargs):
+        kwargs.pop('renorm', None)
+        kwargs.pop('renorm_clipping', None)
+        kwargs.pop('renorm_momentum', None)
+        super().__init__(**kwargs)
+
+# ── Load model ─────────────────────────────────────────────────────────────
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "dr_model_finetuned.keras")
+model = tf.keras.models.load_model(
+    MODEL_PATH,
+    custom_objects={'BatchNormalization': CompatBatchNormalization}
+)
 
 classes = ["No DR", "Mild", "Moderate", "Severe", "Proliferative DR"]
 
@@ -52,6 +68,18 @@ def overlay_heatmap(original_img, heatmap):
     return superimposed
 
 
+# ── Find the last conv layer name automatically ────────────────────────────
+def get_last_conv_layer(model):
+    for layer in reversed(model.layers):
+        if isinstance(layer, (tf.keras.layers.Conv2D,
+                              tf.keras.layers.DepthwiseConv2D,
+                              tf.keras.layers.Activation)):
+            return layer.name
+    return None
+
+LAST_CONV_LAYER = get_last_conv_layer(model)
+
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     prediction = None
@@ -62,7 +90,7 @@ def index():
     if request.method == 'POST':
         img = None
 
-        # 📸 Camera input (SAFE)
+        # 📸 Camera input
         if 'image_data' in request.form and request.form['image_data']:
             try:
                 image_data = request.form['image_data'].split(',')[1]
@@ -94,7 +122,7 @@ def index():
             # preprocess
             img_resized = img.resize((160, 160))
             img_array = np.array(img_resized) / 255.0
-            img_array = np.expand_dims(img_array, axis=0)
+            img_array = np.expand_dims(img_array, axis=0).astype(np.float32)
 
             # predict
             pred = model.predict(img_array)
@@ -102,13 +130,16 @@ def index():
             confidence = float(np.max(pred)) * 100
 
             # Grad-CAM
-            heatmap = make_gradcam_heatmap(img_array, model, "out_relu")
-            gradcam_img = overlay_heatmap(img, heatmap)
-
-            gradcam_pil = Image.fromarray(gradcam_img)
-            buffered = BytesIO()
-            gradcam_pil.save(buffered, format="PNG")
-            gradcam = base64.b64encode(buffered.getvalue()).decode()
+            if LAST_CONV_LAYER:
+                try:
+                    heatmap = make_gradcam_heatmap(img_array, model, LAST_CONV_LAYER)
+                    gradcam_img = overlay_heatmap(img, heatmap)
+                    gradcam_pil = Image.fromarray(gradcam_img)
+                    buffered = BytesIO()
+                    gradcam_pil.save(buffered, format="PNG")
+                    gradcam = base64.b64encode(buffered.getvalue()).decode()
+                except Exception:
+                    gradcam = None  # Grad-CAM is optional, don't crash
 
             if confidence < 50:
                 prediction = "Not a valid retinal image"
