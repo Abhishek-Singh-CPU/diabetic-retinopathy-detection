@@ -1,126 +1,336 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Diabetic Retinopathy Detection</title>
-    <style>
-        body {
-            font-family: Arial;
-            text-align: center;
-            background: #f4f6f9;
-        }
-
-        .container {
-            background: white;
-            padding: 20px;
-            margin: 40px auto;
-            width: 400px;
-            border-radius: 10px;
-            box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
-        }
-
-        button {
-            padding: 10px 20px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #45a049;
-        }
-
-        img, video {
-            margin-top: 15px;
-            border-radius: 8px;
-        }
-
-        .prediction {
-            font-size: 20px;
-            font-weight: bold;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Retinal Diagnostics | Diabetic Retinopathy</title>
+    <meta name="description" content="AI-powered diabetic retinopathy detection from retinal fundus images using deep learning.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Load Feather Icons for premium SVG icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
 </head>
-
 <body>
+    <!-- Background Glow Effects -->
+    <div class="bg-glow"></div>
+    <div class="bg-glow-right"></div>
 
-<h1>Diabetic Retinopathy Detection</h1>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="/" class="nav-brand">
+            <i data-feather="eye"></i>
+            <span>RetinaAI</span>
+        </a>
+        <div class="status-badge">
+            <div class="status-dot"></div>
+            System Active
+        </div>
+    </nav>
 
-<div class="container">
+    <!-- Main Content -->
+    <main class="main-container">
+        
+        <!-- Hero Section -->
+        <section class="hero">
+            <h1>Diabetic Retinopathy <span class="text-gradient-teal">Detection</span></h1>
+            <p>Advanced deep learning analysis for retinal fundus imaging. Upload a scan or use a specialized camera to instantly assess diabetic retinopathy severity and generate a clinical Grad-CAM report.</p>
+        </section>
 
-    <!-- Upload -->
-    <form method="POST" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <br><br>
-        <button type="submit">Upload & Predict</button>
-    </form>
+        <!-- Interactive Split Dashboard -->
+        <section class="dashboard-grid">
+            
+            <!-- Left Panel: Input Actions -->
+            <div class="glass-card upload-section" id="actionCard">
+                <!-- Loading Overlay -->
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div class="spinner"></div>
+                    <p style="font-family: var(--font-display); font-weight: 500;">Analyzing Scan...</p>
+                </div>
 
-    <hr>
+                <div class="upload-tabs">
+                    <button class="tab-btn active" onclick="switchTab('upload')">
+                        <i data-feather="upload-cloud" style="width: 16px; height: 16px; margin-right: 4px; vertical-align: text-bottom;"></i> Image Upload
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('camera')">
+                        <i data-feather="camera" style="width: 16px; height: 16px; margin-right: 4px; vertical-align: text-bottom;"></i> Live Camera
+                    </button>
+                </div>
 
-    <!-- Camera -->
-    <h3>Use Camera</h3>
-    <video id="video" width="250" autoplay></video>
-    <br>
-    <button onclick="capture()">Capture & Predict</button>
+                <!-- Tab 1: Upload -->
+                <div id="tab-upload" class="tab-content active">
+                    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                        <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+                            <i data-feather="image"></i>
+                            <div class="dropzone-text">Drag & drop retinal scan here</div>
+                            <div class="dropzone-subtext">Supports PNG, JPG, JPEG up to 10MB</div>
+                            <input type="file" name="file" id="fileInput" class="file-input" accept="image/png, image/jpeg, image/jpg" onchange="handleFileSelect(this)">
+                        </div>
+                        <p id="fileNameDisplay" style="margin-top: 1rem; color: var(--accent-teal); font-size: 0.875rem; text-align: center; display: none;"></p>
+                        <button type="submit" class="btn" id="uploadBtn" disabled onclick="showLoading()">
+                            <i data-feather="activity"></i> Analyze Scan
+                        </button>
+                    </form>
+                </div>
 
-    <canvas id="canvas" style="display:none;"></canvas>
+                <!-- Tab 2: Camera -->
+                <div id="tab-camera" class="tab-content">
+                    <div class="camera-container" id="cameraContainer">
+                        <video id="video" autoplay playsinline></video>
+                        <div class="scan-overlay"></div>
+                        <div class="scan-line"></div>
+                    </div>
+                    <canvas id="canvas" style="display:none;"></canvas>
+                    <form method="POST" id="cameraForm" style="margin-top: 1.5rem;">
+                        <input type="hidden" name="image_data" id="image_data">
+                        <button type="button" class="btn" onclick="captureAndAnalyze()">
+                            <i data-feather="aperture"></i> Capture & Analyze
+                        </button>
+                    </form>
+                </div>
+            </div>
 
-    <form method="POST" id="cameraForm">
-        <input type="hidden" name="image_data" id="image_data">
-    </form>
+            <!-- Right Panel: Results Dashboard -->
+            <div class="glass-card" id="resultsCard">
+                {% if prediction %}
+                    
+                    {% set severity_class = 'error' %}
+                    {% if prediction == 'No DR' %}{% set severity_class = 'severity-0' %}{% endif %}
+                    {% if prediction == 'Mild' %}{% set severity_class = 'severity-1' %}{% endif %}
+                    {% if prediction == 'Moderate' %}{% set severity_class = 'severity-2' %}{% endif %}
+                    {% if prediction == 'Severe' %}{% set severity_class = 'severity-3' %}{% endif %}
+                    {% if prediction == 'Proliferative DR' %}{% set severity_class = 'severity-4' %}{% endif %}
 
+                    <div class="results-header">
+                        <h2 style="font-family: var(--font-display);">Diagnostic Results</h2>
+                        <button class="btn btn-secondary" style="width: auto; margin: 0; padding: 0.5rem 1rem;" onclick="window.print()">
+                            <i data-feather="download"></i> Report
+                        </button>
+                    </div>
+
+                    <div class="results-content">
+                        <div>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Severity Classification</p>
+                            <div class="result-badge {{ severity_class }}">
+                                {% if severity_class == 'error' %}
+                                    <i data-feather="alert-triangle"></i>
+                                {% elif prediction == 'No DR' %}
+                                    <i data-feather="check-circle"></i>
+                                {% else %}
+                                    <i data-feather="activity"></i>
+                                {% endif %}
+                                {{ prediction }}
+                            </div>
+                        </div>
+
+                        {% if confidence %}
+                        <div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <p style="color: var(--text-muted); font-size: 0.875rem;">AI Confidence Score</p>
+                                <p style="font-weight: 600;">{{ confidence }}%</p>
+                            </div>
+                            <div class="confidence-bar-container">
+                                <div class="confidence-bar" style="width: {{ confidence }}%;"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if image or gradcam %}
+                        <div class="image-preview-group">
+                            {% if image %}
+                            <div class="image-preview-card">
+                                <h4>Original Scan</h4>
+                                <img src="data:image/png;base64,{{ image }}" alt="Uploaded Retinal Scan">
+                            </div>
+                            {% endif %}
+                            
+                            {% if gradcam %}
+                            <div class="image-preview-card">
+                                <h4>Grad-CAM Heatmap</h4>
+                                <img src="data:image/png;base64,{{ gradcam }}" alt="AI Activation Heatmap">
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="medical-disclaimer" style="margin: 1rem 0 0 0; font-size: 0.75rem; padding: 0.75rem; text-align: left;">
+                            <strong>Note:</strong> Heatmap indicates high-activation regions driving the AI's prediction (red/warm colors). Not a substitute for professional medical diagnosis.
+                        </div>
+                    </div>
+                {% else %}
+                    <!-- Empty State before upload -->
+                    <div class="empty-state">
+                        <i data-feather="monitor"></i>
+                        <h3>Awaiting Input</h3>
+                        <p style="margin-top: 0.5rem; max-width: 250px;">Upload a scan or capture an image to generate the diagnostic report and Grad-CAM visualization.</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+        </section>
+
+        <!-- Disease Stage Reference Panel -->
+        <section class="reference-panel">
+            <h2>Disease Stage Reference</h2>
+            <div class="stages-grid">
+                <div class="stage-card">
+                    <div class="stage-indicator" style="background: var(--accent-emerald); box-shadow: 0 0 10px var(--accent-emerald);"></div>
+                    <h3>No DR</h3>
+                    <p>No abnormalities detected. Normal healthy retina.</p>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-indicator" style="background: #a3e635; box-shadow: 0 0 10px #a3e635;"></div>
+                    <h3>Mild</h3>
+                    <p>Microaneurysms only. Early stage, requires monitoring.</p>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-indicator" style="background: var(--accent-teal); box-shadow: 0 0 10px var(--accent-teal);"></div>
+                    <h3>Moderate</h3>
+                    <p>More than just microaneurysms but less than severe DR.</p>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-indicator" style="background: var(--accent-orange); box-shadow: 0 0 10px var(--accent-orange);"></div>
+                    <h3>Severe</h3>
+                    <p>Significant hemorrhages or venous beading. High risk.</p>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-indicator" style="background: var(--accent-red); box-shadow: 0 0 10px var(--accent-red);"></div>
+                    <h3>Proliferative</h3>
+                    <p>Neovascularization or vitreous/preretinal hemorrhage.</p>
+                </div>
+            </div>
+        </section>
+        
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="medical-disclaimer">
+            <i data-feather="shield" style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 4px;"></i>
+            <strong>Medical Disclaimer:</strong> This artificial intelligence tool is for research and screening demonstration purposes only. It is not FDA-approved and must not be used as a substitute for professional clinical diagnosis, advice, or treatment by a qualified ophthalmologist.
+        </div>
+        <p>&copy; 2026 AI Retinal Diagnostics. Powered by TensorFlow and Flask.</p>
+    </footer>
+
+    <!-- Scripts -->
     <script>
+        // Initialize Icons
+        feather.replace();
+
+        // UI Interactions
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.currentTarget.classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+
+            if (tabId === 'camera') {
+                initCamera();
+            } else {
+                stopCamera();
+            }
+        }
+
+        // Drag and Drop Logic
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect(fileInput);
+            }
+        });
+
+        function handleFileSelect(input) {
+            if (input.files && input.files[0]) {
+                fileNameDisplay.textContent = "Selected: " + input.files[0].name;
+                fileNameDisplay.style.display = "block";
+                uploadBtn.disabled = false;
+            } else {
+                fileNameDisplay.style.display = "none";
+                uploadBtn.disabled = true;
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('active');
+        }
+
+        // Camera Logic
         const video = document.getElementById('video');
+        const cameraContainer = document.getElementById('cameraContainer');
+        let stream = null;
 
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => video.srcObject = stream);
+        function initCamera() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                    .then(s => {
+                        stream = s;
+                        video.srcObject = stream;
+                        cameraContainer.classList.add('active');
+                    })
+                    .catch(err => {
+                        console.error("Camera error:", err);
+                        alert("Unable to access camera. Please check permissions.");
+                    });
+            }
+        }
 
-        function capture() {
-    if (video.readyState !== 4) {
-        alert("Camera still loading...");
-        return;
-    }
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                cameraContainer.classList.remove('active');
+            }
+        }
 
-    const canvas = document.getElementById('canvas');
-    const context = canvas.getContext('2d');
+        function captureAndAnalyze() {
+            if (video.readyState !== 4) {
+                alert("Camera still loading or unavailable.");
+                return;
+            }
 
-    // 🔥 reduce resolution
-    const width = 224;
-    const height = 224;
+            showLoading();
 
-    canvas.width = width;
-    canvas.height = height;
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
 
-    context.drawImage(video, 0, 0, width, height);
+            // Set size suitable for model (MobileNetV2 standard input is 224x224, 
+            // though app resizes to 160x160. Capturing at 224x224 is safe.)
+            const width = 224;
+            const height = 224;
 
-    // 🔥 compress image
-    const dataURL = canvas.toDataURL('image/jpeg', 0.7);
+            canvas.width = width;
+            canvas.height = height;
 
-    document.getElementById('image_data').value = dataURL;
-    document.getElementById('cameraForm').submit();
-}
+            // Draw center crop from video to maintain aspect ratio ideally, 
+            // but for simplicity we draw the whole video squashed as before.
+            context.drawImage(video, 0, 0, width, height);
+
+            const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+            document.getElementById('image_data').value = dataURL;
+            document.getElementById('cameraForm').submit();
+        }
+        
+        // If results are present on load, scroll to them on mobile
+        window.onload = () => {
+            if(document.querySelector('.result-badge') && window.innerWidth < 900) {
+                document.getElementById('resultsCard').scrollIntoView({behavior: 'smooth'});
+            }
+        }
     </script>
-
-    {% if image %}
-        <h3>Image</h3>
-        <img src="data:image/png;base64,{{ image }}" width="250">
-    {% endif %}
-
-    {% if prediction %}
-        <p class="prediction">Prediction: {{ prediction }}</p>
-    {% endif %}
-
-    {% if confidence %}
-        <p>Confidence: {{ confidence }}%</p>
-    {% endif %}
-
-    {% if gradcam %}
-        <h3>Grad-CAM</h3>
-        <img src="data:image/png;base64,{{ gradcam }}" width="250">
-    {% endif %}
-
-</div>
-
 </body>
 </html>
