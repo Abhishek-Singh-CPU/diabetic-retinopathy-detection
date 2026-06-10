@@ -8,10 +8,6 @@ import cv2
 import os
 
 # ── Universal Keras Layer Compatibility Patch ────────────────────────────────
-# Older/newer Keras versions save models with extra keyword arguments in layer configs
-# (e.g., 'renorm', 'quantization_config', 'synchronized') which cause Keras 3 to crash.
-# This patch intercepts base Layer.__init__ and filters out any unrecognized kwargs.
-
 ALLOWED_BASE_KWARGS = {
     'input_shape', 'batch_input_shape', 'batch_size', 'weights', 'dynamic',
     'name', 'trainable', 'dtype', 'autocast', 'activity_regularizer'
@@ -45,6 +41,30 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+# ── Retina Image Validation Heuristics ──────────────────────────────────────
+def is_retinal_image(img):
+    img_np = np.array(img)
+    if len(img_np.shape) != 3 or img_np.shape[2] != 3:
+        return False
+    
+    # Calculate average RGB values
+    r_mean = np.mean(img_np[:, :, 0])
+    g_mean = np.mean(img_np[:, :, 1])
+    b_mean = np.mean(img_np[:, :, 2])
+    
+    # Retinal fundus images are predominantly reddish/orange.
+    # Red should be the dominant channel, and there should be some minimum brightness.
+    if r_mean < 35 or r_mean < g_mean or r_mean < b_mean:
+        return False
+        
+    # Check for flat/blank images (standard deviation should be reasonable)
+    gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+    if np.std(gray) < 10:
+        return False
+        
+    return True
 
 
 def make_gradcam_heatmap(img_array, model, last_conv_layer_name):
@@ -110,7 +130,7 @@ def index():
                 img_bytes = base64.b64decode(image_data)
                 img = Image.open(BytesIO(img_bytes)).convert("RGB")
             except Exception:
-                prediction = "Invalid camera image. Please capture again."
+                prediction = "Wrong image provided"
                 return render_template('index.html', prediction=prediction)
 
         # 📁 File upload
@@ -120,44 +140,52 @@ def index():
                 try:
                     img = Image.open(BytesIO(file.read())).convert("RGB")
                 except Exception:
-                    prediction = "Invalid image file."
+                    prediction = "Wrong image provided"
                     return render_template('index.html', prediction=prediction)
             else:
-                prediction = "Invalid file type! Use PNG/JPG."
+                prediction = "Wrong image provided"
                 return render_template('index.html', prediction=prediction)
 
         if img is not None:
-            # preview
-            buffered = BytesIO()
-            img.save(buffered, format="PNG")
-            image = base64.b64encode(buffered.getvalue()).decode()
-
-            # preprocess
-            img_resized = img.resize((160, 160))
-            img_array = np.array(img_resized) / 255.0
-            img_array = np.expand_dims(img_array, axis=0).astype(np.float32)
-
-            # predict
-            pred = model.predict(img_array)
-            class_index = np.argmax(pred)
-            confidence = float(np.max(pred)) * 100
-
-            # Grad-CAM
-            if LAST_CONV_LAYER:
-                try:
-                    heatmap = make_gradcam_heatmap(img_array, model, LAST_CONV_LAYER)
-                    gradcam_img = overlay_heatmap(img, heatmap)
-                    gradcam_pil = Image.fromarray(gradcam_img)
-                    buffered = BytesIO()
-                    gradcam_pil.save(buffered, format="PNG")
-                    gradcam = base64.b64encode(buffered.getvalue()).decode()
-                except Exception:
-                    gradcam = None  # Grad-CAM is optional, don't crash
-
-            if confidence < 50:
-                prediction = "Not a valid retinal image"
+            # Check if it is a retinal image
+            if not is_retinal_image(img):
+                prediction = "Wrong image provided"
+                # Still show preview of the invalid upload
+                buffered = BytesIO()
+                img.save(buffered, format="PNG")
+                image = base64.b64encode(buffered.getvalue()).decode()
             else:
-                prediction = classes[class_index]
+                # preview
+                buffered = BytesIO()
+                img.save(buffered, format="PNG")
+                image = base64.b64encode(buffered.getvalue()).decode()
+
+                # preprocess
+                img_resized = img.resize((160, 160))
+                img_array = np.array(img_resized) / 255.0
+                img_array = np.expand_dims(img_array, axis=0).astype(np.float32)
+
+                # predict
+                pred = model.predict(img_array)
+                class_index = np.argmax(pred)
+                confidence = float(np.max(pred)) * 100
+
+                # Grad-CAM
+                if LAST_CONV_LAYER:
+                    try:
+                        heatmap = make_gradcam_heatmap(img_array, model, LAST_CONV_LAYER)
+                        gradcam_img = overlay_heatmap(img, heatmap)
+                        gradcam_pil = Image.fromarray(gradcam_img)
+                        buffered = BytesIO()
+                        gradcam_pil.save(buffered, format="PNG")
+                        gradcam = base64.b64encode(buffered.getvalue()).decode()
+                    except Exception:
+                        gradcam = None  # Grad-CAM is optional, don't crash
+
+                if confidence < 50:
+                    prediction = "Wrong image provided"
+                else:
+                    prediction = classes[class_index]
 
     return render_template(
         'index.html',
