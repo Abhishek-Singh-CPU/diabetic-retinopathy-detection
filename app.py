@@ -7,28 +7,29 @@ import base64
 import cv2
 import os
 
-# ── Monkeypatch BatchNormalization ──────────────────────────────────────────
-# The model was saved with a TF/Keras version that stored 'renorm' params in
-# BatchNormalization. Keras 3 removed these options, causing load_model to fail.
-# Monkeypatch the constructor of BatchNormalization in both tf.keras and keras.
+# ── Universal Keras Layer Compatibility Patch ────────────────────────────────
+# Older/newer Keras versions save models with extra keyword arguments in layer configs
+# (e.g., 'renorm', 'quantization_config', 'synchronized') which cause Keras 3 to crash.
+# This patch intercepts base Layer.__init__ and filters out any unrecognized kwargs.
 
-original_tf_bn_init = tf.keras.layers.BatchNormalization.__init__
-def patched_tf_bn_init(self, *args, **kwargs):
-    kwargs.pop('renorm', None)
-    kwargs.pop('renorm_clipping', None)
-    kwargs.pop('renorm_momentum', None)
-    original_tf_bn_init(self, *args, **kwargs)
-tf.keras.layers.BatchNormalization.__init__ = patched_tf_bn_init
+ALLOWED_BASE_KWARGS = {
+    'input_shape', 'batch_input_shape', 'batch_size', 'weights', 'dynamic',
+    'name', 'trainable', 'dtype', 'autocast', 'activity_regularizer'
+}
+
+original_tf_layer_init = tf.keras.layers.Layer.__init__
+def patched_tf_layer_init(self, *args, **kwargs):
+    filtered_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_BASE_KWARGS}
+    original_tf_layer_init(self, *args, **filtered_kwargs)
+tf.keras.layers.Layer.__init__ = patched_tf_layer_init
 
 try:
     import keras
-    original_keras_bn_init = keras.layers.BatchNormalization.__init__
-    def patched_keras_bn_init(self, *args, **kwargs):
-        kwargs.pop('renorm', None)
-        kwargs.pop('renorm_clipping', None)
-        kwargs.pop('renorm_momentum', None)
-        original_keras_bn_init(self, *args, **kwargs)
-    keras.layers.BatchNormalization.__init__ = patched_keras_bn_init
+    original_keras_layer_init = keras.layers.Layer.__init__
+    def patched_keras_layer_init(self, *args, **kwargs):
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in ALLOWED_BASE_KWARGS}
+        original_keras_layer_init(self, *args, **filtered_kwargs)
+    keras.layers.Layer.__init__ = patched_keras_layer_init
 except (ImportError, AttributeError):
     pass
 
