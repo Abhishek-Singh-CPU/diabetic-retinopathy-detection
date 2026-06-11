@@ -1,3 +1,11 @@
+---
+title: Diabetic Retinopathy Detection
+emoji: 👁️
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
 # DR Detect – Diabetic Retinopathy Detection System
 
 ## Overview
