@@ -188,10 +188,7 @@ def index():
                     except Exception:
                         gradcam = None  # Grad-CAM is optional, don't crash
 
-                if confidence < 40:
-                    prediction = "Wrong image provided"
-                else:
-                    prediction = classes[class_index]
+                prediction = classes[class_index]
 
     return render_template(
         'index.html',
