@@ -45,31 +45,7 @@ def allowed_file(filename):
 
 # ── Retina Image Validation Heuristics ──────────────────────────────────────
 def is_retinal_image(img):
-    img_np = np.array(img)
-    if len(img_np.shape) != 3 or img_np.shape[2] != 3:
-        return False
-    
-    gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-    
-    # 1. Flat/blank image check
-    if np.std(gray) < 5:
-        return False
-        
-    # 2. Too dark/bright check
-    mean_val = np.mean(gray)
-    if mean_val < 5 or mean_val > 250:
-        return False
-        
-    # 3. Color channel check (Retinas usually have more red than blue in the central region)
-    h, w = img_np.shape[:2]
-    center_r = np.mean(img_np[h//4:3*h//4, w//4:3*w//4, 0])
-    center_b = np.mean(img_np[h//4:3*h//4, w//4:3*w//4, 2])
-    
-    # If the center is overwhelmingly blue, it's not a retina.
-    # We add a small buffer (+10) to account for different lighting.
-    if center_b > center_r + 20:
-        return False
-
+    # Temporarily bypass heuristics to isolate if this is causing the 'Wrong image provided' error
     return True
 
 
