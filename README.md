@@ -19,7 +19,7 @@ A deep learning web app that classifies diabetic retinopathy severity from retin
 - Severe
 - Proliferative DR
 
-## How to Use
+How to Use
 1. Upload a retinal fundus image (PNG/JPG)
 2. Or use your webcam to capture one
 3. Click **Predict** to see the classification and Grad-CAM heatmap
