@@ -37,7 +37,7 @@ model = tf.keras.models.load_model(MODEL_PATH)
 
 classes = ["No DR", "Mild", "Moderate", "Severe", "Proliferative DR"]
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'jfif', 'bmp', 'tiff'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -112,7 +112,7 @@ def index():
                 img_bytes = base64.b64decode(image_data)
                 img = Image.open(BytesIO(img_bytes)).convert("RGB")
             except Exception:
-                prediction = "Wrong image provided"
+                prediction = "Failed to process camera image."
                 return render_template('index.html', prediction=prediction)
 
         # 📁 File upload
@@ -122,10 +122,10 @@ def index():
                 try:
                     img = Image.open(BytesIO(file.read())).convert("RGB")
                 except Exception:
-                    prediction = "Wrong image provided"
+                    prediction = "Failed to process image file."
                     return render_template('index.html', prediction=prediction)
             else:
-                prediction = "Wrong image provided"
+                prediction = f"Unsupported file type. Please use: {', '.join(ALLOWED_EXTENSIONS)}"
                 return render_template('index.html', prediction=prediction)
 
         if img is not None:
