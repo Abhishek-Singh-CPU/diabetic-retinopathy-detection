@@ -66,7 +66,7 @@
                         </div>
                         <p id="fileNameDisplay" style="margin-top: 1rem; color: var(--accent-teal); font-size: 0.875rem; text-align: center; display: none;"></p>
                         <button type="submit" class="btn" id="uploadBtn" disabled onclick="showLoading()">
-                            <i data-feather="activity"></i> Analyze Scan
+                            <i data-feather="activity"></i> Predict
                         </button>
                     </form>
                 </div>
@@ -151,9 +151,7 @@
                         </div>
                         {% endif %}
                         
-                        <div class="medical-disclaimer" style="margin: 1rem 0 0 0; font-size: 0.75rem; padding: 0.75rem; text-align: left;">
-                            <strong>Note:</strong> Heatmap indicates high-activation regions driving the AI's prediction (red/warm colors). Not a substitute for professional medical diagnosis.
-                        </div>
+                        <!-- Duplicate disclaimer removed to save vertical space -->
                     </div>
                 {% else %}
                     <!-- Empty State before upload -->
