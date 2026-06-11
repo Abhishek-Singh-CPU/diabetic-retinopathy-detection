@@ -49,21 +49,27 @@ def is_retinal_image(img):
     if len(img_np.shape) != 3 or img_np.shape[2] != 3:
         return False
     
-    # Calculate average RGB values
-    r_mean = np.mean(img_np[:, :, 0])
-    g_mean = np.mean(img_np[:, :, 1])
-    b_mean = np.mean(img_np[:, :, 2])
-    
-    # Retinal fundus images are predominantly reddish/orange.
-    # Red should be the dominant channel, and there should be some minimum brightness.
-    if r_mean < 35 or r_mean < g_mean or r_mean < b_mean:
-        return False
-        
-    # Check for flat/blank images (standard deviation should be reasonable)
     gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-    if np.std(gray) < 10:
+    
+    # 1. Flat/blank image check
+    if np.std(gray) < 5:
         return False
         
+    # 2. Too dark/bright check
+    mean_val = np.mean(gray)
+    if mean_val < 5 or mean_val > 250:
+        return False
+        
+    # 3. Color channel check (Retinas usually have more red than blue in the central region)
+    h, w = img_np.shape[:2]
+    center_r = np.mean(img_np[h//4:3*h//4, w//4:3*w//4, 0])
+    center_b = np.mean(img_np[h//4:3*h//4, w//4:3*w//4, 2])
+    
+    # If the center is overwhelmingly blue, it's not a retina.
+    # We add a small buffer (+10) to account for different lighting.
+    if center_b > center_r + 20:
+        return False
+
     return True
 
 
@@ -182,7 +188,7 @@ def index():
                     except Exception:
                         gradcam = None  # Grad-CAM is optional, don't crash
 
-                if confidence < 50:
+                if confidence < 40:
                     prediction = "Wrong image provided"
                 else:
                     prediction = classes[class_index]
