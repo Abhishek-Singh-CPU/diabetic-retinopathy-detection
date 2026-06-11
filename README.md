@@ -8,7 +8,7 @@ pinned: false
 app_port: 7860
 ---
 
-# Diabetic Retinopathy Detection
+ Diabetic Retinopathy Detection
 
 A deep learning web app that classifies diabetic retinopathy severity from retinal fundus images using a fine-tuned MobileNetV2 model with Grad-CAM visualization.
 
